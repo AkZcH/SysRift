@@ -1,1 +1,10 @@
 output.txt
+
+
+# Added by cargo
+
+/target
+/target
+trace.log
+test_bin
+test.c
