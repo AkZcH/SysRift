@@ -1,6 +1,4 @@
-# SysRift
-
-### Deterministic Syscall-Level Execution Replay Engine
+# SysRift- Deterministic Syscall-Level Execution Replay Engine
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Language: C](https://img.shields.io/badge/Language-C-blue.svg)]()
@@ -8,6 +6,8 @@
 [![ptrace](https://img.shields.io/badge/Kernel-ptrace-critical.svg)]()
 
 ---
+
+![Sysrift Terminal showing live record and replay](screenshot.png)
 
 ## 🚀 Overview
 

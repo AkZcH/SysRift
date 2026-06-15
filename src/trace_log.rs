@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::fs::{File, OpenOptions};
+use std::fs::{File};
 use std::io::{BufRead, BufReader, BufWriter, Write};
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -18,9 +18,7 @@ pub struct TraceWriter {
 impl TraceWriter {
     pub fn create(path: &str) -> Self {
         let file = File::create(path).expect("failed to create trace log");
-        TraceWriter {
-            writer: BufWriter::new(file),
-        }
+        TraceWriter { writer: BufWriter::new(file) }
     }
 
     pub fn write_event(&mut self, event: &TraceEvent) {
@@ -36,9 +34,7 @@ pub struct TraceReader {
 impl TraceReader {
     pub fn open(path: &str) -> Self {
         let file = File::open(path).expect("failed to open trace log");
-        TraceReader {
-            lines: BufReader::new(file).lines(),
-        }
+        TraceReader { lines: BufReader::new(file).lines() }
     }
 }
 
