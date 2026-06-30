@@ -1,7 +1,7 @@
 # SysRift- Deterministic Syscall-Level Execution Replay Engine
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Language: C](https://img.shields.io/badge/Language-C-blue.svg)]()
+[![Language: Rust](https://img.shields.io/badge/Language-Rust-orange.svg)]()
 [![Platform: Linux](https://img.shields.io/badge/Platform-Linux-orange.svg)]()
 [![ptrace](https://img.shields.io/badge/Kernel-ptrace-critical.svg)]()
 
@@ -88,11 +88,41 @@ sequenceDiagram
     B -->|Injected results| A
 ```
 
+## 🔬 Replay Semantics
+
+SysRift does not treat every recorded syscall identically. Faking _every_ syscall's return value naively breaks programs that depend on real OS state — most notably dynamic linking, where `mmap`, `mprotect`, and `fstat` calls require genuinely valid file descriptors and memory mappings to function.
+
+SysRift's replay strategy splits syscalls into two categories:
+
+**Structural syscalls** (`openat`, `close`, `fstat`, `mmap`, `mprotect`, `brk`, etc.) execute for real during replay. This keeps file descriptors valid and memory layout consistent, so dependent syscalls later in the chain don't operate on stale or fabricated state.
+
+**Content syscalls** (`read`, `pread64`) are neutralized and their results are injected from the trace. The real syscall never executes — instead, SysRift overwrites the return value and writes the recorded buffer directly into the process's memory via `process_vm_writev`.
+
+This means replay does not guarantee _zero side effects_ — it guarantees **deterministic file content**, independent of what's actually on disk at replay time. A file can be modified or deleted between record and replay, and the traced program will still observe exactly the bytes it read during recording.
+
+```mermaid
+flowchart TD
+    A[Syscall intercepted] --> B{Structural or Content?}
+    B -->|openat, close, fstat, mmap, brk| C[Execute for real]
+    B -->|read, pread64| D[Neutralize via getpid substitution]
+    D --> E[Inject recorded return value]
+    D --> F[Inject recorded buffer via process_vm_writev]
+    C --> G[Continue execution]
+    E --> G
+    F --> G
+```
+
+This approach was validated against both a static binary performing direct file reads and a fully dynamically-linked binary (`/bin/echo`), confirming that replay reproduces identical program behavior even when the underlying file on disk has been changed between record and replay.
+
 ## 🛠 Build
 
+Requires a Linux environment (native or WSL2) with a Rust toolchain installed via [rustup](https://rustup.rs/).
+
 ```bash
-gcc tracer.c -o sysrift
+cargo build --release
 ```
+
+The compiled binary will be at `target/release/sysrift`.
 
 ---
 
@@ -101,7 +131,7 @@ gcc tracer.c -o sysrift
 ### Record Execution
 
 ```bash
-./sysrift /bin/echo hello
+sysrift record /bin/echo hello
 ```
 
 This generates:
@@ -113,10 +143,10 @@ trace.log
 ### Replay Execution
 
 ```bash
-./sysrift replay /bin/echo hello
+sysrift replay /bin/echo hello
 ```
 
-The program executes without performing real syscalls — behavior is reconstructed from the log.
+The program's structural syscalls (file opens, memory mapping) execute normally; its content syscalls (`read`, `pread64`) are reconstructed from the trace log instead of touching the real filesystem.
 
 ---
 
