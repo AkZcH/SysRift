@@ -40,5 +40,5 @@ pub fn run(program: &str, args: &[String]) {
 }
 
 fn is_replayable(num: u64) -> bool {
-    matches!(num, 0 | 1 | 2 | 3 | 257) // read, write, open, close, openat
+    matches!(num, 0 | 17) // read, write, open, close, openat
 }
