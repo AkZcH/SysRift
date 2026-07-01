@@ -1,3 +1,4 @@
+use crate::error::{Result, SysriftError};
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
@@ -16,16 +17,17 @@ pub struct TraceWriter {
 }
 
 impl TraceWriter {
-    pub fn create(path: &str) -> Self {
-        let file = File::create(path).expect("failed to create trace log");
-        TraceWriter {
+    pub fn create(path: &str) -> Result<Self> {
+        let file = File::create(path)?;
+        Ok(TraceWriter {
             writer: BufWriter::new(file),
-        }
+        })
     }
 
-    pub fn write_event(&mut self, event: &TraceEvent) {
-        let json = serde_json::to_string(event).expect("serialize failed");
-        writeln!(self.writer, "{}", json).expect("write failed");
+    pub fn write_event(&mut self, event: &TraceEvent) -> Result<()> {
+        let json = serde_json::to_string(event)?;
+        writeln!(self.writer, "{}", json)?;
+        Ok(())
     }
 }
 
@@ -34,11 +36,11 @@ pub struct TraceReader {
 }
 
 impl TraceReader {
-    pub fn open(path: &str) -> Self {
-        let file = File::open(path).expect("failed to open trace log");
-        TraceReader {
+    pub fn open(path: &str) -> Result<Self> {
+        let file = File::open(path)?;
+        Ok(TraceReader {
             lines: BufReader::new(file).lines(),
-        }
+        })
     }
 }
 
@@ -46,7 +48,8 @@ impl Iterator for TraceReader {
     type Item = TraceEvent;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let line = self.lines.next()?.expect("read line failed");
-        Some(serde_json::from_str(&line).expect("deserialize failed"))
+        let line = self.lines.next()?.ok()?;
+        let event = serde_json::from_str(&line).map_err(SysriftError::Parse).ok()?;
+        Some(event)
     }
 }

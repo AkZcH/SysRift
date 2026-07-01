@@ -1,54 +1,45 @@
+use crate::error::{Result, SysriftError};
 use nix::libc::user_regs_struct;
 use nix::sys::ptrace;
 use nix::sys::signal::Signal;
-use nix::sys::wait::{WaitStatus, waitpid};
-use nix::unistd::{ForkResult, Pid, execvp, fork};
+use nix::sys::wait::{waitpid, WaitStatus};
+use nix::unistd::{execvp, fork, ForkResult, Pid};
 use std::ffi::CString;
 
-pub fn set_regs(pid: Pid, regs: &nix::libc::user_regs_struct) {
-    ptrace::setregs(pid, *regs).expect("setregs failed");
+pub fn set_regs(pid: Pid, regs: &user_regs_struct) -> Result<()> {
+    ptrace::setregs(pid, *regs).map_err(SysriftError::Ptrace)
 }
 
-pub fn get_regs(pid: Pid) -> user_regs_struct {
-    ptrace::getregs(pid).expect("getregs failed")
+pub fn get_regs(pid: Pid) -> Result<user_regs_struct> {
+    ptrace::getregs(pid).map_err(SysriftError::Ptrace)
 }
 
-pub fn run_traced<F>(program: &str, args: &[String], mut on_syscall_stop: F)
+pub fn run_traced<F>(program: &str, args: &[String], mut on_syscall_stop: F) -> Result<()>
 where
-    F: FnMut(Pid, bool), // (pid, is_entry)
+    F: FnMut(Pid, bool) -> Result<()>,
 {
-    match unsafe { fork() }.expect("fork failed") {
+    match unsafe { fork() }? {
         ForkResult::Child => {
-            // Let the parent trace us
-            ptrace::traceme().expect("traceme failed");
+            ptrace::traceme().map_err(SysriftError::Ptrace)?;
 
-            // Build argv for execvp: program name + args, all as CStrings
             let prog_c = CString::new(program).unwrap();
             let mut argv: Vec<CString> = vec![prog_c.clone()];
             for a in args {
                 argv.push(CString::new(a.as_str()).unwrap());
             }
 
-            // Replace this process image with the target program.
-            // This raises a SIGTRAP that the parent will see as the first wait().
             let err = execvp(&prog_c, &argv).unwrap_err();
-            panic!("execvp failed: {:?}", err);
+            Err(SysriftError::ExecFailed(err))
         }
         ForkResult::Parent { child } => {
-            // Wait for the initial stop caused by execvp's SIGTRAP
-            waitpid(child, None).expect("waitpid failed");
+            waitpid(child, None).map_err(SysriftError::Ptrace)?;
 
-            // is_entry toggles each stop: true = entering a syscall,
-            // false = exiting it. ptrace gives us no direct flag for this —
-            // every syscall produces TWO stops (entry, then exit), so we
-            // just alternate.
             let mut is_entry = true;
 
             loop {
-                // Ask the kernel to run until the next syscall entry/exit
-                ptrace::syscall(child, None).expect("ptrace syscall failed");
+                ptrace::syscall(child, None).map_err(SysriftError::Ptrace)?;
 
-                match waitpid(child, None).expect("waitpid failed") {
+                match waitpid(child, None).map_err(SysriftError::Ptrace)? {
                     WaitStatus::Exited(_, code) => {
                         println!("[tracer] child exited with code {}", code);
                         break;
@@ -58,7 +49,7 @@ where
                         break;
                     }
                     WaitStatus::Stopped(_, Signal::SIGTRAP) => {
-                        on_syscall_stop(child, is_entry);
+                        on_syscall_stop(child, is_entry)?;
                         is_entry = !is_entry;
                     }
                     WaitStatus::Stopped(_, sig) => {
@@ -71,6 +62,8 @@ where
                     }
                 }
             }
+
+            Ok(())
         }
     }
 }

@@ -1,3 +1,4 @@
+mod error;
 mod record;
 mod replay;
 mod syscall;
@@ -5,6 +6,7 @@ mod trace_log;
 mod tracer;
 
 use clap::{Parser, Subcommand};
+
 #[derive(Parser)]
 #[command(name = "sysrift", about = "Syscall recorder and replayer")]
 struct Cli {
@@ -33,12 +35,13 @@ enum Mode {
 fn main() {
     let cli = Cli::parse();
 
-    match cli.mode {
-        Mode::Record { program, args } => {
-            record::run(&program, &args);
-        }
-        Mode::Replay { program, args } => {
-            replay::run(&program, &args);
-        }
+    let result = match cli.mode {
+        Mode::Record { program, args } => record::run(&program, &args),
+        Mode::Replay { program, args } => replay::run(&program, &args),
+    };
+
+    if let Err(e) = result {
+        eprintln!("[sysrift] error: {}", e);
+        std::process::exit(1);
     }
 }
