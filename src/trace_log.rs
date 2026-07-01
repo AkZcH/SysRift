@@ -49,7 +49,9 @@ impl Iterator for TraceReader {
 
     fn next(&mut self) -> Option<Self::Item> {
         let line = self.lines.next()?.ok()?;
-        let event = serde_json::from_str(&line).map_err(SysriftError::Parse).ok()?;
+        let event = serde_json::from_str(&line)
+            .map_err(SysriftError::Parse)
+            .ok()?;
         Some(event)
     }
 }

@@ -2,8 +2,8 @@ use crate::error::{Result, SysriftError};
 use nix::libc::user_regs_struct;
 use nix::sys::ptrace;
 use nix::sys::signal::Signal;
-use nix::sys::wait::{waitpid, WaitStatus};
-use nix::unistd::{execvp, fork, ForkResult, Pid};
+use nix::sys::wait::{WaitStatus, waitpid};
+use nix::unistd::{ForkResult, Pid, execvp, fork};
 use std::ffi::CString;
 
 pub fn set_regs(pid: Pid, regs: &user_regs_struct) -> Result<()> {
