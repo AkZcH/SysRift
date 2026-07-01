@@ -4,8 +4,8 @@ use nix::libc::user_regs_struct;
 use nix::sys::ptrace;
 use nix::sys::ptrace::Options;
 use nix::sys::signal::Signal;
-use nix::sys::wait::{waitpid, WaitStatus};
-use nix::unistd::{execvp, fork, ForkResult, Pid};
+use nix::sys::wait::{WaitStatus, waitpid};
+use nix::unistd::{ForkResult, Pid, execvp, fork};
 use std::collections::HashMap;
 use std::ffi::CString;
 
@@ -102,10 +102,7 @@ where
                             // forward the signal so wait() in the tracee unblocks
                             ptrace::syscall(pid, sig).map_err(SysriftError::Ptrace)?;
                         } else {
-                            println!(
-                                "[tracer] pid {} received signal {:?}, killing",
-                                pid, sig
-                            );
+                            println!("[tracer] pid {} received signal {:?}, killing", pid, sig);
                             let _ = nix::sys::signal::kill(pid, Signal::SIGKILL);
                             tracees.remove(&pid);
                             if tracees.is_empty() {

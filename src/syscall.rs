@@ -65,11 +65,11 @@ pub fn syscall_name(num: u64) -> &'static str {
         12 => "brk",
         17 => "pread64",
         21 => "access",
-        56 => "clone",       // used by fork() on Linux
+        56 => "clone", // used by fork() on Linux
         57 => "fork",
         58 => "vfork",
         59 => "execve",
-        61 => "wait4",       // wait() maps to wait4
+        61 => "wait4", // wait() maps to wait4
         90 => "chmod",
         158 => "arch_prctl",
         202 => "futex",
