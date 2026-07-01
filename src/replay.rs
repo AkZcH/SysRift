@@ -23,10 +23,11 @@ pub fn run(program: &str, args: &[String]) {
                     regs.rax = event.ret as u64;
                     tracer::set_regs(pid, &regs);
 
-                    if let Some(data) = &event.data {
-                        if !data.is_empty() && matches!(event.num, 0 | 17) {
-                            syscall::write_memory(pid, saved_buf_ptr, data);
-                        }
+                    if let Some(data) = &event.data
+                        && !data.is_empty()
+                        && matches!(event.num, 0 | 17)
+                    {
+                        syscall::write_memory(pid, saved_buf_ptr, data);
                     }
                 }
                 println!("[replay] {} -> ret={}", event.name, event.ret);
